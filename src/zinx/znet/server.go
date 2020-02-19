@@ -6,6 +6,7 @@
 package znet
 
 import (
+	"awesomeProject/src/zinx/utils"
 	"awesomeProject/src/zinx/ziface"
 	"errors"
 	"fmt"
@@ -42,6 +43,10 @@ func CallBackToClient(conn *net.TCPConn, data []byte, cnt int) error {
 }
 
 func (s *Server) Start() {
+	fmt.Printf("[Zinx] serverName :%s,listenner at IP:%s,Port:%d is starting\n",
+		utils.GlobalObject.Name, utils.GlobalObject.Host, utils.GlobalObject.TcpPort)
+	fmt.Printf("[Zinx] Version %s,MaxConn:%d,MaxPackageSize:%d\n",
+		utils.GlobalObject.Version, utils.GlobalObject.MaxConn, utils.GlobalObject.MaxPackageSize)
 	fmt.Printf("[Start] Server Listenner at IP :%s, Port:%d is starting\n", s.IP, s.Port)
 	go func() {
 		addr, err := net.ResolveTCPAddr(s.IPVersion, fmt.Sprintf("%s:%d", s.IP, s.Port))
@@ -91,10 +96,11 @@ func (s *Server) Serve() {
 */
 func NewServer(name string) ziface.IServer {
 	s := &Server{
-		Name:      name,
+		Name:      utils.GlobalObject.Name,
 		IPVersion: "tcp4",
-		IP:        "0.0.0.0",
-		Port:      10010,
-		Router:    nil}
+		IP:        utils.GlobalObject.Host,
+		Port:      utils.GlobalObject.TcpPort,
+		Router:    nil,
+	}
 	return s
 }

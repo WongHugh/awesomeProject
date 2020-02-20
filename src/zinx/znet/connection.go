@@ -27,19 +27,19 @@ type Connection struct {
 	handleAPI ziface.HandleFunc
 	// 告知当前链接已经退出/停止 channel
 	ExitChal chan bool
-	//该链接处理的方法
-	Router ziface.IRouter
+	//消息的管理msgID 和对应的处理业务API关系
+	MsgHandler ziface.IMsgHandle
 }
 
 //初始化链接模块的方法
 
-func NewConnection(conn *net.TCPConn, connID uint32, router ziface.IRouter) *Connection {
+func NewConnection(conn *net.TCPConn, connID uint32, msgHandler ziface.IMsgHandle) *Connection {
 	c := &Connection{
-		Conn:     conn,
-		ConnId:   connID,
-		isClosed: false,
-		Router:   router,
-		ExitChal: make(chan bool, 1),
+		Conn:       conn,
+		ConnId:     connID,
+		isClosed:   false,
+		MsgHandler: msgHandler,
+		ExitChal:   make(chan bool, 1),
 	}
 	return c
 }
@@ -50,13 +50,6 @@ func (c *Connection) StartReader() {
 	defer fmt.Println("connID=", c.ConnId, "Reader is exit,remote addr is ", c.RemoterAddr().String())
 	defer c.Stop()
 	for {
-		//buf := make([]byte, utils.GlobalObject.MaxPackageSize)
-		//_, err := c.Conn.Read(buf)
-		//if err != nil {
-		//	fmt.Println("recv buff err", err)
-		//	c.ExitChal <- true
-		//	continue
-		//}
 
 		//创建一个拆包解包对象
 		dp := NewDataPack()
@@ -84,12 +77,7 @@ func (c *Connection) StartReader() {
 
 		req := Request{msg: msg, conn: c}
 		//从路由中，找到注册绑定的Conn对应的router调用
-		go func(request ziface.IRequest) {
-			c.Router.PreHandle(request)
-			c.Router.Handle(request)
-			c.Router.PostHandle(request)
-
-		}(&req)
+		go c.MsgHandler.DoMsgHandle(&req)
 
 	}
 

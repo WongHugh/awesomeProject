@@ -27,6 +27,8 @@ type Connection struct {
 	handleAPI ziface.HandleFunc
 	// 告知当前链接已经退出/停止 channel
 	ExitChal chan bool
+	//无缓冲通到，用于读写goroutine之间的消息通讯
+	msgChan chan []byte
 	//消息的管理msgID 和对应的处理业务API关系
 	MsgHandler ziface.IMsgHandle
 }
@@ -39,6 +41,7 @@ func NewConnection(conn *net.TCPConn, connID uint32, msgHandler ziface.IMsgHandl
 		ConnId:     connID,
 		isClosed:   false,
 		MsgHandler: msgHandler,
+		msgChan:    make(chan []byte),
 		ExitChal:   make(chan bool, 1),
 	}
 	return c
@@ -83,11 +86,32 @@ func (c *Connection) StartReader() {
 
 }
 
+/*
+	写消息数据至客户端
+*/
+func (c *Connection) StartWriter() {
+	fmt.Println("Writer goroutine is running....")
+	defer fmt.Println(c.RemoterAddr().String(), "[conn writer exit!]")
+	for {
+		select {
+		case data := <-c.msgChan:
+			_, err := c.Conn.Write(data)
+			if err != nil {
+				fmt.Println("Send data err:", err)
+				return
+			}
+		case <-c.ExitChal:
+			return
+		}
+	}
+}
+
 //启动链接，让当前的链接准备工作
 func (c *Connection) Start() {
 	fmt.Println("Conn Start()...ConnID= ", c.ConnId)
 	//todo 启动从当前链接的读数据的业务
 	go c.StartReader()
+	go c.StartWriter()
 	for {
 		select {
 		case <-c.ExitChal:
@@ -110,6 +134,7 @@ func (c *Connection) Stop() {
 	}
 	c.ExitChal <- true
 	close(c.ExitChal)
+	close(c.msgChan)
 }
 
 //获取当前链接的绑定sokect conn
@@ -140,10 +165,7 @@ func (c *Connection) SendMsg(msgId uint32, data []byte) error {
 	if err != nil {
 		fmt.Println("pack error msg id:", msgId, " error:", err)
 	}
-	_, err = c.Conn.Write(binaryMsg)
-	if err != nil {
-		fmt.Println("write msg id :", msgId, " error:", err)
-	}
+	c.msgChan <- binaryMsg
 
 	return nil
 }

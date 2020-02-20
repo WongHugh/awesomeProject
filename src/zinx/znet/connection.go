@@ -6,9 +6,10 @@
 package znet
 
 import (
-	"awesomeProject/src/zinx/utils"
 	"awesomeProject/src/zinx/ziface"
+	"errors"
 	"fmt"
+	"io"
 	"net"
 )
 
@@ -49,14 +50,39 @@ func (c *Connection) StartReader() {
 	defer fmt.Println("connID=", c.ConnId, "Reader is exit,remote addr is ", c.RemoterAddr().String())
 	defer c.Stop()
 	for {
-		buf := make([]byte, utils.GlobalObject.MaxPackageSize)
-		_, err := c.Conn.Read(buf)
+		//buf := make([]byte, utils.GlobalObject.MaxPackageSize)
+		//_, err := c.Conn.Read(buf)
+		//if err != nil {
+		//	fmt.Println("recv buff err", err)
+		//	c.ExitChal <- true
+		//	continue
+		//}
+
+		//创建一个拆包解包对象
+		dp := NewDataPack()
+		headData := make([]byte, dp.GetHeadLen())
+		_, err := io.ReadFull(c.GetTCPConnection(), headData)
 		if err != nil {
-			fmt.Println("recv buff err", err)
-			c.ExitChal <- true
-			continue
+			fmt.Println("Read headData err:", err)
+			break
 		}
-		req := Request{data: buf, conn: c}
+		msg, err := dp.Unpack(headData)
+		if err != nil {
+			fmt.Println("unpack err:", err)
+			break
+		}
+		var data []byte
+		if msg.GetMsgfLen() > 0 {
+			data = make([]byte, msg.GetMsgfLen())
+			if _, err := io.ReadFull(c.GetTCPConnection(), data); err != nil {
+				fmt.Println("read msg data err:", err)
+				break
+			}
+
+		}
+		msg.SetData(data)
+
+		req := Request{msg: msg, conn: c}
 		//从路由中，找到注册绑定的Conn对应的router调用
 		go func(request ziface.IRequest) {
 			c.Router.PreHandle(request)
@@ -114,8 +140,22 @@ func (c *Connection) RemoterAddr() net.Addr {
 	return c.Conn.RemoteAddr()
 }
 
-//发送数据，将舒服发送给远程的客户端
+// 提供一个SendMsg方法，将数据发送到客户端
+func (c *Connection) SendMsg(msgId uint32, data []byte) error {
+	if c.isClosed == true {
+		return errors.New("Connection closed when send msg")
+	}
 
-func (c *Connection) Send(data []byte) error {
+	dp := NewDataPack()
+	msg := NewMsgPackage(msgId, data)
+	binaryMsg, err := dp.Pack(msg)
+	if err != nil {
+		fmt.Println("pack error msg id:", msgId, " error:", err)
+	}
+	_, err = c.Conn.Write(binaryMsg)
+	if err != nil {
+		fmt.Println("write msg id :", msgId, " error:", err)
+	}
+
 	return nil
 }

@@ -18,6 +18,8 @@ import (
 	链接模块
 */
 type Connection struct {
+	//当前conn 属于哪个Sever
+	TcpServer ziface.IServer
 	//当前链接的socket TCP 套接字
 	Conn *net.TCPConn
 	//链接的ID
@@ -36,8 +38,9 @@ type Connection struct {
 
 //初始化链接模块的方法
 
-func NewConnection(conn *net.TCPConn, connID uint32, msgHandler ziface.IMsgHandle) *Connection {
+func NewConnection(server ziface.IServer, conn *net.TCPConn, connID uint32, msgHandler ziface.IMsgHandle) *Connection {
 	c := &Connection{
+		TcpServer:  server,
 		Conn:       conn,
 		ConnId:     connID,
 		isClosed:   false,
@@ -45,6 +48,8 @@ func NewConnection(conn *net.TCPConn, connID uint32, msgHandler ziface.IMsgHandl
 		msgChan:    make(chan []byte),
 		ExitChal:   make(chan bool, 1),
 	}
+	//将conn加入到ConnManager中
+	c.TcpServer.GetConnMgr().Add(c)
 	return c
 }
 
@@ -118,6 +123,7 @@ func (c *Connection) Start() {
 	//todo 启动从当前链接的读数据的业务
 	go c.StartReader()
 	go c.StartWriter()
+	c.TcpServer.CallOnConnStart(c)
 	for {
 		select {
 		case <-c.ExitChal:
@@ -134,11 +140,15 @@ func (c *Connection) Stop() {
 		return
 	}
 	c.isClosed = true
+	c.TcpServer.CallOnConnStop(c)
 	err := c.Conn.Close()
 	if err != nil {
-		fmt.Println("Conn Stop() close faild", err)
+		fmt.Println("Conn Stop() close failed", err)
 	}
 	c.ExitChal <- true
+
+	c.TcpServer.GetConnMgr().Remove(c)
+
 	close(c.ExitChal)
 	close(c.msgChan)
 }

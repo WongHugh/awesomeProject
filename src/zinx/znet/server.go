@@ -48,7 +48,9 @@ func (s *Server) Start() {
 	fmt.Printf("[Zinx] Version %s,MaxConn:%d,MaxPackageSize:%d\n",
 		utils.GlobalObject.Version, utils.GlobalObject.MaxConn, utils.GlobalObject.MaxPackageSize)
 	fmt.Printf("[Start] Server Listenner at IP :%s, Port:%d is starting\n", s.IP, s.Port)
+
 	go func() {
+		s.MsgHandler.StartWorkerPoll()
 		addr, err := net.ResolveTCPAddr(s.IPVersion, fmt.Sprintf("%s:%d", s.IP, s.Port))
 		if err != nil {
 			fmt.Println("Resolve tcp addr error :", err)

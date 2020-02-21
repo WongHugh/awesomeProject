@@ -6,6 +6,7 @@
 package znet
 
 import (
+	"awesomeProject/src/zinx/utils"
 	"awesomeProject/src/zinx/ziface"
 	"errors"
 	"fmt"
@@ -80,7 +81,12 @@ func (c *Connection) StartReader() {
 
 		req := Request{msg: msg, conn: c}
 		//从路由中，找到注册绑定的Conn对应的router调用
-		go c.MsgHandler.DoMsgHandle(&req)
+		if utils.GlobalObject.WorkerPoolSize > 0 {
+			c.MsgHandler.SendMsgToTaskQueue(&req)
+		} else {
+			go c.MsgHandler.DoMsgHandle(&req)
+
+		}
 
 	}
 

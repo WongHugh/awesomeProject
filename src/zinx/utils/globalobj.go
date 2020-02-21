@@ -21,9 +21,11 @@ type GlobalObj struct {
 	TcpPort   int
 	Name      string
 
-	Version        string //zinx的版本号
-	MaxConn        int    //当前服务主机允许的最大连接数
-	MaxPackageSize uint32 //数据包最大值
+	Version          string //zinx的版本号
+	MaxConn          int    //当前服务主机允许的最大连接数
+	MaxPackageSize   uint32 //数据包最大值
+	WorkerPoolSize   uint32 //工作worker池的队列的个数
+	MaxWorkerTaskLen uint32 //每个worker对应消息队列的任务的数量最大值
 
 }
 
@@ -52,13 +54,15 @@ func (g *GlobalObj) Reload() {
 */
 func init() {
 	GlobalObject = &GlobalObj{
-		TcpServer:      nil,
-		Host:           "0.0.0.0",
-		TcpPort:        10010,
-		Name:           "ZinxServerAPP",
-		Version:        "V0.7",
-		MaxConn:        1000,
-		MaxPackageSize: 4096,
+		TcpServer:        nil,
+		Host:             "0.0.0.0",
+		TcpPort:          10010,
+		Name:             "ZinxServerAPP",
+		Version:          "V0.8",
+		MaxConn:          1000,
+		MaxPackageSize:   4096,
+		WorkerPoolSize:   10,
+		MaxWorkerTaskLen: 1024,
 	}
 
 	//从配置文件重载全局参数
